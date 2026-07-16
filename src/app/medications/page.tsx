@@ -1,61 +1,33 @@
+import { Pill, Package, Repeat2 } from "lucide-react";
 import { getMedications } from "@/actions/medication";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Pill } from "lucide-react";
-import DeleteButton from "@/components/DeleteButton"; // Import ปุ่มที่เราเพิ่งสร้าง
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import DeleteButton from "@/components/DeleteButton";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-// This page reads from Prisma and must not be evaluated during `next build`.
 export const dynamic = "force-dynamic";
 
 export default async function MedicationsPage() {
-  // ดึงข้อมูลยาทั้งหมดจาก Database
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (session.role === "DOCTOR" || session.role === "ADMIN") redirect("/doctor");
   const medications = await getMedications();
-
   return (
-    <main className="min-h-screen bg-zinc-950 p-6 text-zinc-50">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">รายการยาของฉัน</h1>
-          <Link href="/medications/new">
-            <Button className="bg-white text-black hover:bg-zinc-200">
-              + เพิ่มยาใหม่
-            </Button>
-          </Link>
-        </div>
+    <main className="min-h-screen bg-[#f6f8fc] px-5 py-8 text-slate-900 sm:px-8">
+      <div className="mx-auto max-w-5xl">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div><p className="text-sm font-semibold text-[#1769b0]">รายการที่ดูแลอยู่</p><h1 className="mt-1 text-3xl font-bold tracking-tight">ยาของฉัน</h1><p className="mt-2 text-sm text-slate-500">จัดการข้อมูลยาและตรวจสอบจำนวนคงเหลือ</p></div>
+        </header>
 
-        {/* ถ้าไม่มียา ให้แสดง Empty State */}
         {medications.length === 0 ? (
-          <div className="text-center py-20 bg-zinc-900 rounded-2xl border border-zinc-800">
-            <Pill className="mx-auto h-12 w-12 text-zinc-600 mb-4" />
-            <p className="text-zinc-400">ยังไม่มีข้อมูลยาในระบบ</p>
-          </div>
+          <section className="mt-8 rounded-3xl border border-dashed border-blue-200 bg-white px-6 py-16 text-center shadow-sm"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#1769b0]"><Pill className="h-8 w-8" /></div><h2 className="mt-5 text-xl font-semibold">ยังไม่มีรายการยา</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">แพทย์จะเป็นผู้เพิ่มรายการยาและตารางการรับประทานให้คุณ</p></section>
         ) : (
-          /* ถ้ายามีข้อมูล ให้แสดงเป็น Grid (ตาราง) */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {medications.map((med) => (
-              <Card key={med.id} className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <div>
-                    <CardTitle className="text-xl font-bold">{med.name}</CardTitle>
-                    <CardDescription className="text-zinc-400">
-                      กินวันละ {med.timesPerDay} ครั้ง
-                    </CardDescription>
-                  </div>
-                  {/* เรียกใช้ปุ่มลบ และส่ง id ไปให้ */}
-                  <DeleteButton id={med.id} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-zinc-300 mt-4 flex items-center justify-between">
-                    <span>คงเหลือ:</span>
-                    <span className="font-bold text-lg bg-zinc-800 px-3 py-1 rounded-md">
-                      {med.remainingQuantity}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {medications.map((med) => {
+              const lowStock = med.remainingQuantity < 10;
+              return <Card key={med.id} className="border border-slate-200 bg-white py-0 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><CardHeader className="px-5 pb-3 pt-5"><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><span className="mt-1 h-3 w-3 shrink-0 rounded-full ring-4 ring-slate-100" style={{ backgroundColor: med.color }} /><div><CardTitle className="truncate text-lg font-semibold text-slate-800">{med.name}</CardTitle><CardDescription className="mt-1 text-slate-500">รับประทานวันละ {med.timesPerDay} ครั้ง</CardDescription></div></div><DeleteButton id={med.id} /></div></CardHeader><CardContent className="border-t border-slate-100 px-5 py-4"><div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm text-slate-500"><Package className="h-4 w-4 text-slate-400" />คงเหลือ</div><span className={`rounded-full px-3 py-1 text-sm font-semibold ${lowStock ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{med.remainingQuantity} เม็ด</span></div>{lowStock && <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-700"><Repeat2 className="h-3.5 w-3.5" />ใกล้หมด ควรเตรียมยาเพิ่ม</p>}</CardContent></Card>;
+            })}
+          </section>
         )}
       </div>
     </main>

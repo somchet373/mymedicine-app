@@ -3,58 +3,165 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// 1. ตารางเก็บข้อมูลยา
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum MealTiming {
+  BEFORE_MEAL
+  AFTER_MEAL
+  WITH_MEAL
+  OTHER
+}
+
+enum HistoryStatus {
+  TAKEN
+  SKIPPED
+  MISSED
+  SNOOZED
+}
+
+enum NotificationChannel {
+  BROWSER
+  EMAIL
+  SOUND
+  POPUP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  READ
+  FAILED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(PATIENT)
+  name         String
+  imageUrl     String?
+  dateOfBirth  DateTime?
+  phone        String?
+  conditions   String?
+  allergies    String?
+  weightKg     Float?
+  heightCm     Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  medications    Medication[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
+}
+
 model Medication {
   id                String     @id @default(cuid())
+  userId            String?
   name              String
   description       String?
   imageUrl          String?
-  remainingQuantity Int        @default(0) // จำนวนคงเหลือ 
+  type              String?
+  dosage            String?
+  unit              String?
+  mealTiming        MealTiming @default(AFTER_MEAL)
+  remainingQuantity Int        @default(0)
+  lowStockThreshold Int        @default(10)
   startDate         DateTime
   endDate           DateTime?
-  timeDescription   String?    // หมายเหตุเวลาที่ต้องกิน เช่น "หลังอาหารเช้า 15 นาที"
+  timeDescription   String?
   timesPerDay       Int        @default(1)
   notes             String?
-  color             String     @default("#000000") // สีประจำยา
-  
-  // ความสัมพันธ์ (1 ยา มีได้หลายตารางเวลา และ หลายประวัติการกิน)
-  schedules         Schedule[]
-  histories         History[]
-
+  color             String     @default("#1769B0")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules     Schedule[]
+  histories     History[]
+  notifications Notification[]
+
+  @@index([userId, createdAt])
 }
 
-// 2. ตารางเก็บเวลาที่ต้องแจ้งเตือน
 model Schedule {
   id           String     @id @default(cuid())
   medicationId String
   medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
-  time         String     // เก็บเวลา เช่น "08:00"
-  dayOfWeek    Int?       // เก็บ 0-6 (อาทิตย์-เสาร์) กรณีไม่ได้กินทุกวัน
-  status       Boolean    @default(true) // เปิด/ปิด การแจ้งเตือนนี้
+  time         String
+  dayOfWeek    Int?
+  status       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  histories History[]
+
+  @@index([medicationId, status])
 }
 
-// 3. ตารางเก็บประวัติการกินยา
 model History {
-  id           String     @id @default(cuid())
+  id           String        @id @default(cuid())
   medicationId String
-  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
-  date         DateTime   // วันที่กิน
-  timeTaken    String?    // เวลาที่กินจริง (บันทึกตอนกดปุ่ม)
-  isTaken      Boolean    @default(false) // กินหรือยัง
+  scheduleId   String?
+  medication   Medication    @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  schedule     Schedule?     @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  date         DateTime
+  timeTaken    String?
+  status       HistoryStatus @default(TAKEN)
+  isTaken      Boolean       @default(false)
+  reason       String?
+  createdAt    DateTime      @default(now())
+
+  @@index([medicationId, date])
+  @@index([scheduleId, date])
 }
 
-// 4. ตารางเก็บข้อมูลญาติ (สำหรับฟีเจอร์แชร์ข้อมูล)
-model Family {
-  id           String   @id @default(cuid())
-  name         String
-  relationship String
-  phone        String?
-  notes        String?
-  createdAt    DateTime @default(now())
+model Notification {
+  id           String              @id @default(cuid())
+  userId       String
+  medicationId String?
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medication   Medication?         @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  channel      NotificationChannel
+  status       NotificationStatus  @default(PENDING)
+  title        String
+  body         String
+  scheduledFor DateTime
+  sentAt       DateTime?
+  createdAt    DateTime            @default(now())
+
+  @@index([userId, status, scheduledFor])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, createdAt])
+  @@index([userId, createdAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
 }

@@ -2,40 +2,75 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getSession } from "@/lib/auth";
+
+export async function getTakenMedicationIdsForToday() {
+  const session = await getSession();
+  if (!session) return [];
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const startOfTomorrow = new Date(startOfDay);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+  const histories = await prisma.history.findMany({
+    where: {
+      medication: { userId: session.userId },
+      isTaken: true,
+      date: {
+        gte: startOfDay,
+        lt: startOfTomorrow,
+      },
+    },
+    select: { medicationId: true },
+    distinct: ["medicationId"],
+  });
+
+  return histories.map((history) => history.medicationId);
+}
 
 export async function markAsTaken(medicationId: string) {
+  if (!medicationId) {
+    return { success: false, error: "ไม่พบรายการยาที่ต้องการบันทึก" };
+  }
+
   try {
-    // ใช้ Prisma Transaction เพื่อรับประกันว่าข้อมูลจะถูกอัปเดตพร้อมกันทั้ง 2 ตาราง
+    const session = await getSession();
+    if (!session) return { success: false, error: "กรุณาเข้าสู่ระบบก่อนบันทึกการกินยา" };
     await prisma.$transaction(async (tx) => {
-      // 1. บันทึกประวัติว่ากินแล้ว
-      await tx.history.create({
+      // The condition and decrement happen together, preventing negative stock
+      // when two requests attempt to record the same last dose.
+      const updateResult = await tx.medication.updateMany({
+        where: {
+          id: medicationId,
+          userId: session.userId,
+          remainingQuantity: { gt: 0 },
+        },
         data: {
-          medicationId: medicationId,
-          date: new Date(),
-          isTaken: true,
-          timeTaken: new Date().toLocaleTimeString('th-TH'), // เก็บเวลาที่กด
+          remainingQuantity: { decrement: 1 },
         },
       });
 
-      // 2. ตัดยอดจำนวนยาคงเหลือลง 1
-      await tx.medication.update({
-        where: { id: medicationId },
+      if (updateResult.count !== 1) {
+        throw new Error("Medication is unavailable");
+      }
+
+      await tx.history.create({
         data: {
-          remainingQuantity: {
-            decrement: 1, // คำสั่งพิเศษของ Prisma สำหรับลบเลข
-          },
+          medicationId,
+          date: new Date(),
+          isTaken: true,
+          timeTaken: new Date().toLocaleTimeString("th-TH"),
         },
       });
     });
 
-    // รีเฟรชหน้าเว็บเพื่อให้ตัวเลขและสถานะอัปเดต
-    revalidatePath("/schedule");
-    revalidatePath("/medications");
     revalidatePath("/");
-    
+    revalidatePath("/medications");
+    revalidatePath("/schedule");
+
     return { success: true };
   } catch (error) {
     console.error("Mark as taken error:", error);
-    return { success: false, error: "ไม่สามารถบันทึกข้อมูลได้" };
+    return { success: false, error: "ไม่สามารถบันทึกการกินยาได้ ยาอาจหมดหรือถูกลบไปแล้ว" };
   }
 }
