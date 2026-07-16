@@ -19,8 +19,8 @@ import { useRouter } from "next/navigation";
 // 1. สร้าง Data Dictionary (Schema) ด้วย Zod
 const formSchema = z.object({
   name: z.string().min(2, { message: "ชื่อยาต้องมีอย่างน้อย 2 ตัวอักษร" }),
-  remainingQuantity: z.coerce.number().min(1, { message: "ต้องมียาอย่างน้อย 1 เม็ด/ขวด" }),
-  timesPerDay: z.coerce.number().min(1, { message: "ต้องกินอย่างน้อย 1 ครั้งต่อวัน" }),
+  remainingQuantity: z.number().min(1, { message: "ต้องมียาอย่างน้อย 1 เม็ด/ขวด" }),
+  timesPerDay: z.number().min(1, { message: "ต้องกินอย่างน้อย 1 ครั้งต่อวัน" }),
 });
 
 export default function NewMedicationPage() {

@@ -69,3 +69,25 @@ export async function addMedication(formData: {
     return { success: false, error: "ไม่สามารถเพิ่มข้อมูลยาได้" };
   }
 }
+
+// (โค้ดเดิมด้านบน...)
+
+// 4. ฟังก์ชันลบยา
+export async function deleteMedication(id: string) {
+  try {
+    await prisma.medication.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    // ล้างแคชเพื่อให้หน้าเว็บอัปเดตข้อมูลใหม่ทันที
+    revalidatePath("/");
+    revalidatePath("/medications");
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Delete Error:", error);
+    return { success: false, error: "ไม่สามารถลบข้อมูลได้" };
+  }
+}
