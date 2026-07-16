@@ -1,0 +1,43 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+
+// 1. ฟังก์ชันดึงรายการยาทั้งหมด
+export async function getMedications() {
+  try {
+    // ใช้ Prisma ดึงข้อมูลยา เรียงจากวันที่สร้างล่าสุด (desc)
+    const medications = await prisma.medication.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return medications;
+  } catch (error) {
+    console.error("Database Error:", error);
+    throw new Error("ไม่สามารถดึงข้อมูลยาได้");
+  }
+}
+
+// 2. ฟังก์ชันดึงสถิติสำหรับหน้า Dashboard (Home)
+export async function getDashboardStats() {
+  try {
+    const totalMedications = await prisma.medication.count();
+    
+    // ดึงเฉพาะยาที่จำนวนคงเหลือน้อยกว่า 10 เพื่อเตือน
+    const lowStockMeds = await prisma.medication.count({
+      where: {
+        remainingQuantity: {
+          lt: 10,
+        },
+      },
+    });
+
+    return {
+      totalMedications,
+      lowStockMeds,
+      // เดี๋ยวเราค่อยมาเพิ่มสถิติการกินยาของ "วันนี้" ตอนทำระบบ Schedule ครบ
+    };
+  } catch (error) {
+    console.error("Dashboard Stats Error:", error);
+    throw new Error("ไม่สามารถดึงข้อมูลสถิติได้");
+  }
+}

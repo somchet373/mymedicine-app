@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 1. ตารางเก็บข้อมูลยา
+model Medication {
+  id                String     @id @default(cuid())
+  name              String
+  description       String?
+  imageUrl          String?
+  remainingQuantity Int        @default(0) // จำนวนคงเหลือ 
+  startDate         DateTime
+  endDate           DateTime?
+  timeDescription   String?    // หมายเหตุเวลาที่ต้องกิน เช่น "หลังอาหารเช้า 15 นาที"
+  timesPerDay       Int        @default(1)
+  notes             String?
+  color             String     @default("#000000") // สีประจำยา
+  
+  // ความสัมพันธ์ (1 ยา มีได้หลายตารางเวลา และ หลายประวัติการกิน)
+  schedules         Schedule[]
+  histories         History[]
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}
+
+// 2. ตารางเก็บเวลาที่ต้องแจ้งเตือน
+model Schedule {
+  id           String     @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  time         String     // เก็บเวลา เช่น "08:00"
+  dayOfWeek    Int?       // เก็บ 0-6 (อาทิตย์-เสาร์) กรณีไม่ได้กินทุกวัน
+  status       Boolean    @default(true) // เปิด/ปิด การแจ้งเตือนนี้
+}
+
+// 3. ตารางเก็บประวัติการกินยา
+model History {
+  id           String     @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  date         DateTime   // วันที่กิน
+  timeTaken    String?    // เวลาที่กินจริง (บันทึกตอนกดปุ่ม)
+  isTaken      Boolean    @default(false) // กินหรือยัง
+}
+
+// 4. ตารางเก็บข้อมูลญาติ (สำหรับฟีเจอร์แชร์ข้อมูล)
+model Family {
+  id           String   @id @default(cuid())
+  name         String
+  relationship String
+  phone        String?
+  notes        String?
+  createdAt    DateTime @default(now())
+}
