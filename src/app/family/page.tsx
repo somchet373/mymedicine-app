@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HeartPulse, AlertCircle } from "lucide-react";
 
 // ใน Next.js 15 searchParams ต้องถูกรับเป็น Promise
+// This page reads from Prisma and must not be evaluated during `next build`.
+export const dynamic = "force-dynamic";
+
 export default async function FamilyPage({
   searchParams,
 }: {

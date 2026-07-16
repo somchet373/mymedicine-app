@@ -3,6 +3,9 @@ import { Pill, AlertTriangle } from "lucide-react";
 import { getDashboardStats } from "@/actions/medication"; // Import ฟังก์ชันที่เราเพิ่งสร้าง
 import TestNotification from "@/components/TestNotification"; // นำเข้าคอมโพเนนต์ทดสอบแจ้งเตือน
 
+// This page reads from Prisma and must not be evaluated during `next build`.
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   // เรียกใช้งาน Server Action ตรงๆ แบบไม่ต้องใช้ fetch()!
   const stats = await getDashboardStats();

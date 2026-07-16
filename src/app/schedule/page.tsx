@@ -6,6 +6,9 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import TakeMedicationButton from "@/components/TakeMedicationButton";
 
+// This page reads from Prisma and must not be evaluated during `next build`.
+export const dynamic = "force-dynamic";
+
 export default async function SchedulePage() {
   const medications = await getMedications();
   
