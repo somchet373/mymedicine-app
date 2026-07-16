@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Pill, AlertTriangle } from "lucide-react";
 import { getDashboardStats } from "@/actions/medication"; // Import ฟังก์ชันที่เราเพิ่งสร้าง
+import TestNotification from "@/components/TestNotification"; // นำเข้าคอมโพเนนต์ทดสอบแจ้งเตือน
 
 export default async function HomePage() {
   // เรียกใช้งาน Server Action ตรงๆ แบบไม่ต้องใช้ fetch()!
@@ -14,6 +15,7 @@ export default async function HomePage() {
         </h1>
         
         {/* กล่องแสดงสถิติ */}
+        <TestNotification />
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="bg-zinc-800 p-4 rounded-xl border border-zinc-700">
             <h2 className="text-3xl font-bold text-zinc-100">{stats.totalMedications}</h2>
